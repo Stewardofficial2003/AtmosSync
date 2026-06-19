@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AtmosSync</title>
+  <style>
+    /* ---- Base Sizing & Reset ---- */
+    * { box-sizing: border-box; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    html, body {
+      width: 350px;
+      height: 500px;
+      margin: 0;
+      overflow: hidden;
+      background: #000000;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      user-select: none;
+      cursor: default;
+    }
+
+    /* ---- Canvas ---- */
+    #fireflies {
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      z-index: 0;
+    }
+
+    /* ---- Main App Container ---- */
+    #app {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 500px;
+      width: 350px;
+      padding: 36px 28px 24px;
+      transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                  filter 0.55s ease;
+    }
+    #app.dissolving {
+      opacity: 0;
+      transform: translateY(28px) scale(0.96);
+      filter: blur(4px);
+      pointer-events: none;
+    }
+
+    /* ---- Close Button ---- */
+    #closeBtn {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 20;
+      display: flex;
+      height: 28px;
+      width: 28px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.4);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    #closeBtn:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* ---- Logo ---- */
+    .logo-container {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    @keyframes logoIn {
+      0%   { opacity: 0; transform: translateY(-12px) scale(0.85); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .logo-anim { animation: logoIn 1s cubic-bezier(0.25, 1, 0.5, 1) both; }
+
+    /* ---- Text & Typography ---- */
+    .subtitle {
+      margin-top: 4px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 300;
+      text-transform: uppercase;
+      letter-spacing: 0.45em;
+      color: rgba(255, 255, 255, 0.35);
+    }
+    @keyframes fadeUp {
+      0%   { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 1.1s cubic-bezier(0.25, 1, 0.5, 1) both; }
+    .delay-1 { animation-delay: 0.25s; }
+    .delay-2 { animation-delay: 0.5s; }
+    .delay-3 { animation-delay: 0.75s; }
+
+    /* ---- Toggle Block ---- */
+    .toggle-block {
+      margin-top: auto;
+      margin-bottom: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .toggle-track {
+      width: 84px;
+      height: 44px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+                  border-color 0.45s ease,
+                  box-shadow 0.45s ease;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+    }
+    .toggle-track.on {
+      background: rgba(245, 197, 110, 0.22);
+      border-color: rgba(245, 197, 110, 0.5);
+      box-shadow: inset 0 0 12px rgba(245, 197, 110, 0.25),
+                  0 0 22px rgba(245, 197, 110, 0.18);
+    }
+    .toggle-knob {
+      position: absolute;
+      top: 50%;
+      left: 4px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      transform: translateY(-50%);
+      transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.45s ease,
+                  box-shadow 0.45s ease,
+                  width 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .toggle-track.on .toggle-knob {
+      left: 44px;
+      background: #fcd98c;
+      box-shadow: 0 0 14px rgba(252, 217, 140, 0.9),
+                  0 0 28px rgba(252, 217, 140, 0.5);
+    }
+    .toggle-track:active .toggle-knob { width: 42px; }
+
+    /* ---- Typewriter ---- */
+    .status-container { height: 20px; text-align: center; }
+    .status-text {
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: 0.025em;
+      color: transparent;
+      transition: opacity 0.4s ease;
+      margin: 0;
+    }
+    .caret { display: inline-block; width: 1px; height: 1em; background: currentColor; margin-left: 2px; vertical-align: middle; }
+    .caret.blink { animation: blink 0.9s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---- Media Card ---- */
+    .media-card {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background-color: rgba(255, 255, 255, 0.05);
+      padding: 12px 16px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .icon-box {
+      display: flex;
+      height: 36px;
+      width: 36px;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background-color: rgba(252, 217, 140, 0.1);
+    }
+    .text-box { min-width: 0; }
+    .card-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      color: rgba(255, 255, 255, 0.3);
+      margin: 0 0 2px 0;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.7);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fireflies"></canvas>
+
+  <div id="app">
+    
+    <button id="closeBtn" aria-label="Close">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="6" y1="6" x2="18" y2="18" />
+        <line x1="18" y1="6" x2="6" y2="18" />
+      </svg>
+    </button>
+
+    <div class="logo-container logo-anim">
+      <svg width="108" height="108" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <g transform="translate(0, -10)">
+          <circle cx="100" cy="100" r="45" fill="none" stroke="#e2e8f0" stroke-width="14" filter="url(#glow)" opacity="0.9"/>
+          <line x1="75" y1="100" x2="125" y2="100" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+          <circle cx="75" cy="100" r="7" fill="#ffffff" filter="url(#glow)"/>
+          <circle cx="125" cy="100" r="7" fill="#ffffff" filter="url(#glow)"/>
+        </g>
+        <text x="100" y="180" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#ffffff" text-anchor="middle" font-weight="300" letter-spacing="1.5">AtmosSync</text>
+      </svg>
+    </div>
+
+    <p class="subtitle fade-up delay-1">Night Forest</p>
+
+    <div class="toggle-block fade-up delay-2">
+      <div id="toggle" class="toggle-track" role="switch" aria-checked="false" tabindex="0">
+        <span class="toggle-knob"></span>
+      </div>
+      <div class="status-container">
+        <p id="status" class="status-text">
+          <span id="statusText"></span><span id="caret" class="caret"></span>
+        </p>
+      </div>
+    </div>
+
+    <div class="media-card fade-up delay-3">
+      <div class="icon-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fcd98c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+      <div class="text-box">
+        <p class="card-label">Vibing to</p>
+        <p id="movieTitle" class="card-title">Browsing Netflix...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
